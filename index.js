@@ -3,16 +3,24 @@ const bodyParser = require("body-parser");
 const cors = require('cors');
 const MongoClient = require('mongodb').MongoClient;
 
+
+
 const port = process.env.PORT || 5000;
 
 require('dotenv').config();
 
-const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ozwps.mongodb.net/${process.env.DB_NAME}?retryWrites=true&w=majority`;
 
 const app = express();
-
+app.use(bodyParser.urlencoded({
+    extended: false
+  }));
 app.use(bodyParser.json());
 app.use(cors());
+
+
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ozwps.mongodb.net/${process.env.DB_NAME}?retryWrites=true&w=majority`;
+
+
 
 
 app.get('/', (req, res) => {
@@ -25,7 +33,7 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
 
 
 client.connect(err => {
-    const collection = client.db("creativeAgency").collection("serviceCoolection");
+    const orderCollection = client.db("creativeAgency").collection("serviceCoolection");
 
     app.post('/addOrder', (req, res) => {
         const order = req.body;
@@ -34,6 +42,14 @@ client.connect(err => {
         });
     })
 
+    app.get("/userOrder", (req, res) => {
+        orderCollection
+          .find({ email: req.query.email })
+          .toArray((err, documents) => {
+            res.send(documents);
+            console.log(documents)
+          });
+      });
 });
 
 app.listen(port);

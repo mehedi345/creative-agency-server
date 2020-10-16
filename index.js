@@ -5,6 +5,7 @@ const MongoClient = require('mongodb').MongoClient;
 
 
 
+
 const port = process.env.PORT || 5000;
 
 require('dotenv').config();
@@ -29,11 +30,14 @@ app.get('/', (req, res) => {
 
 
 
+
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
 
 
 client.connect(err => {
     const orderCollection = client.db("creativeAgency").collection("serviceCoolection");
+    const reviewCollection = client.db("creativeAgency").collection("reviewCollection");
+
 
     app.post('/addOrder', (req, res) => {
         const order = req.body;
@@ -50,6 +54,25 @@ client.connect(err => {
             console.log(documents)
           });
       });
+
+      app.post('/addReview', (req, res) => {
+        const userInfo = req.body
+        reviewCollection.insertOne(userInfo)
+            .then(result => {
+                res.send(result.insertedCount > 0)
+                console.log(result)
+            })
+    })
+    
+    app.get('/getReview', (req, res) => {
+      reviewCollection.find({})
+      .limit(3)
+        .toArray((err, documents) => {
+          res.send(documents)
+        })
+    })
+      
+     
 });
 
 app.listen(port);

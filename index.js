@@ -2,7 +2,7 @@ const express = require('express');
 const bodyParser = require("body-parser");
 const cors = require('cors');
 const MongoClient = require('mongodb').MongoClient;
-
+const fileUpload = require('express-fileupload');
 
 
 
@@ -17,6 +17,8 @@ app.use(bodyParser.urlencoded({
   }));
 app.use(bodyParser.json());
 app.use(cors());
+app.use(express.static('service'))
+app.use(fileUpload())
 
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ozwps.mongodb.net/${process.env.DB_NAME}?retryWrites=true&w=majority`;
@@ -37,7 +39,9 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
 client.connect(err => {
     const orderCollection = client.db("creativeAgency").collection("serviceCoolection");
     const reviewCollection = client.db("creativeAgency").collection("reviewCollection");
-
+    const AdminsCollection = client.db("creativeAgency").collection("admins");
+    const ServiceCollection = client.db("creativeAgency").collection("services");
+    
 
     app.post('/addOrder', (req, res) => {
         const order = req.body;
@@ -72,6 +76,41 @@ client.connect(err => {
         })
     })
       
+    app.post('/isAdmin', (req, res) => {
+      const email = req.body.email;
+      AdminsCollection.find({ email: email })
+        .toArray((err, admins) => {
+          res.send(admins.length > 0);
+        })
+    });
+
+    app.post('/isUser', (req, res) => {
+      const email = req.body.email;
+      orderCollection.find({ email: email })
+        .toArray((err, user) => {
+          res.send(user.length > 0);
+        })
+    });
+
+    
+
+    app.post('/AddService', (req, res) => {
+      const file = req.files.file;
+      const title = req.body.title;
+      const description = req.body.description;
+      const newImg = file.data;
+          const encImg = newImg.toString('base64');
+    
+          var image = {
+              contentType: file.mimetype,
+              size: file.size,
+              img: Buffer.from(encImg, 'base64')
+          };
+          ServiceCollection.insertOne({image, title, description})
+        .then(result => {
+          res.send(result.insertedCount > 0)
+        })
+    })
      
 });
 

@@ -2,6 +2,7 @@ const express = require('express');
 const bodyParser = require("body-parser");
 const cors = require('cors');
 const MongoClient = require('mongodb').MongoClient;
+const admin = require('firebase-admin');
 const fileUpload = require('express-fileupload');
 
 
@@ -24,13 +25,16 @@ app.use(fileUpload())
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ozwps.mongodb.net/${process.env.DB_NAME}?retryWrites=true&w=majority`;
 
 
-
+const serviceAccount = require("./creative-aggency-firebase-adminsdk-kuzxu-27b09234a2.json");
 
 app.get('/', (req, res) => {
     res.send('created by author')
 })
 
-
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+  databaseURL: process.env.FIRE_DB
+});
 
 
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
@@ -39,8 +43,8 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
 client.connect(err => {
     const orderCollection = client.db("creativeAgency").collection("serviceCoolection");
     const reviewCollection = client.db("creativeAgency").collection("reviewCollection");
-    const AdminsCollection = client.db("creativeAgency").collection("admins");
-    const ServiceCollection = client.db("creativeAgency").collection("services");
+    const adminsCollection = client.db("creativeAgency").collection("admins");
+    const serviceCollection = client.db("creativeAgency").collection("services");
     
 
     app.post('/addOrder', (req, res) => {
@@ -75,10 +79,17 @@ client.connect(err => {
           res.send(documents)
         })
     })
-      
+    app.post('/addAdmin', (req, res) => {
+      const userInfo = req.body
+      adminsCollection.insertOne(userInfo)
+        .then(result => {
+          res.send(result.insertedCount > 0)
+        })
+    });
+
     app.post('/isAdmin', (req, res) => {
       const email = req.body.email;
-      AdminsCollection.find({ email: email })
+      adminsCollection.find({ email: email })
         .toArray((err, admins) => {
           res.send(admins.length > 0);
         })
@@ -92,7 +103,35 @@ client.connect(err => {
         })
     });
 
-    
+    app.get('/getServices', (req, res) => {
+      serviceCollection.find({})
+        .toArray((err, documents) => {
+          res.send(documents)
+          console.log(documents);
+        })
+    });
+
+    app.get('/getUserServices', (req, res) => {
+      const bearer = req.headers.authorization;
+      if (bearer && bearer.startsWith('Bearer ')) {
+        const idToken = bearer.split(' ')[1];
+        // idToken comes from the client app
+        admin.auth().verifyIdToken(idToken)
+          .then((decodedToken) => {
+            let tokenEmail = decodedToken.email;
+            UserServiceCollection.find({
+              email: tokenEmail
+            })
+              .toArray((err, documents) => {
+                res.send(documents)
+              })
+          }).catch((error) => {
+            res.sendStatus(401);
+          });
+      } else {
+        res.sendStatus(401);
+      }
+    });
 
     app.post('/AddService', (req, res) => {
       const file = req.files.file;
@@ -114,4 +153,6 @@ client.connect(err => {
      
 });
 
-app.listen(port);
+app.listen(port, ()=> {
+  console.log(`example listening on port ${port}`)
+});
